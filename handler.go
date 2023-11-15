@@ -67,14 +67,13 @@ func (h *HttpEchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		jwtRaw := r.Header.Get(h.jwtHeader)
 		if jwtRaw != "" {
 			jwtRawParts := strings.Split(jwtRaw, " ")
-			if len(jwtRawParts) == 2 {
-				jwt, err := ParseJwtString(jwtRawParts[1])
-				if err != nil {
-					h.writeErr(w, err, "failed to parse jwt")
-					return
-				}
-				response.Jwt = jwt
+			i := min(1, len(jwtRawParts))
+			jwt, err := ParseJwtString(jwtRawParts[i])
+			if err != nil {
+				h.writeErr(w, err, "failed to parse jwt")
+				return
 			}
+			response.Jwt = jwt
 		}
 	}
 
