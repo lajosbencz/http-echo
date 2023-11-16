@@ -2,10 +2,21 @@
 Yet Another HTTP echo image for dummy payloads
 
 
+## Download
+
+- Docker Hub
+    - https://hub.docker.com/r/lajosbencz/http-echo
+    - `docker pull lajosbencz/http-echo`
+- GitHub Registry
+    - https://github.com/lajosbencz/http-echo/pkgs/container/http-echo
+    - `docker pull ghcr.io/lajosbencz/http-echo`
+- GitHub Release
+    - https://github.com/lajosbencz/http-echo/releases
+
 ## Config
 
 
-### From Terminal
+### Arguments
 
 ```
 -host string
@@ -21,7 +32,7 @@ Yet Another HTTP echo image for dummy payloads
 ```
 
 
-### From Environment
+### Environment
 
 ```bash 
 LOG_JSON="0"
