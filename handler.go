@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/rs/zerolog"
 )
@@ -12,6 +13,8 @@ import (
 type HttpEchoHandler struct {
 	logger    zerolog.Logger
 	jwtHeader string
+	counter   uint64
+	mutex     sync.Mutex
 }
 
 func (h *HttpEchoHandler) writeErr(w http.ResponseWriter, err error, msg string) {
@@ -32,7 +35,13 @@ func (h *HttpEchoHandler) writeErr(w http.ResponseWriter, err error, msg string)
 
 func (h *HttpEchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	h.logger.Info().Msgf("serving %s %s to %s", r.Method, r.RequestURI, r.RemoteAddr)
+	var counter uint64 = 0
+	h.mutex.Lock()
+	h.counter += 1
+	counter = h.counter
+	h.mutex.Unlock()
+
+	h.logger.Info().Uint64("counter", counter).Msgf("serving %s %s to %s", r.Method, r.RequestURI, r.RemoteAddr)
 
 	response := HttpEchoResponse{
 		Hostname: r.Host,
@@ -83,11 +92,15 @@ func (h *HttpEchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err, "failed to marshal response as JSON")
 		return
 	}
+
+	h.logger.Info().Int64("counter", int64(counter)).Any("response", response).Msgf("served %s %s to %s", r.Method, r.RequestURI, r.RemoteAddr)
 }
 
 func NewHttpEchoHandler(logger zerolog.Logger, jwtHeader string) *HttpEchoHandler {
 	return &HttpEchoHandler{
 		logger:    logger,
 		jwtHeader: jwtHeader,
+		counter:   0,
+		mutex:     sync.Mutex{},
 	}
 }

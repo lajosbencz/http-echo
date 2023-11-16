@@ -4,8 +4,27 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 )
+
+func GetEnvInt(name string, defaultValue int) int {
+	if v := os.Getenv(name); v != "" {
+		p, err := strconv.Atoi(v)
+		if err == nil {
+			return p
+		}
+	}
+	return defaultValue
+}
+
+func GetEnvBool(name string) bool {
+	if v := os.Getenv(name); v != "" && (v == "1" || strings.ToUpper(v[0:1]) == "Y") {
+		return true
+	}
+	return false
+}
 
 func ParseJwtString(jwt string) (*HttpEchoResponse_Jwt, error) {
 	parts := strings.Split(jwt, ".")

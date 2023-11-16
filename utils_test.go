@@ -6,9 +6,10 @@ import (
 	httpecho "github.com/lajosbencz/http-echo"
 )
 
+const jwtToken = "eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiSm9lIENvZGVyIn0.5dlp7GmziL2QS06sZgK4mtaqv0_xX4oFUuTDh1zHK4U"
+
 func TestParseJwtToken(t *testing.T) {
-	token := "eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiSm9lIENvZGVyIn0.5dlp7GmziL2QS06sZgK4mtaqv0_xX4oFUuTDh1zHK4U"
-	jwt, err := httpecho.ParseJwtString(token)
+	jwt, err := httpecho.ParseJwtString(jwtToken)
 	if err != nil {
 		t.Error(err)
 	}

@@ -1,6 +1,13 @@
+# user to run process as
 ARG USER=nobody
+
+# default env vars for app
+ARG LOG_JSON=0
+ARG LISTEN_HOST=0.0.0.0
 ARG LISTEN_PORT=8080
-ARG JWT_HEADER=
+ARG JWT_ENABLED=0
+ARG JWT_HEADER=Authorization
+
 
 # build image
 FROM golang:1.21-alpine3.18 as builder
@@ -9,21 +16,25 @@ ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-WORKDIR /src
+WORKDIR /src/app
 
 COPY . .
 
-RUN go mod download && \
-    go build --ldflags "-s -w" -o http-echo ./cmd/http-echo/
+RUN go get -tags musl && \
+    go test ./... -covermode=atomic -coverpkg=./... && \
+    go build -tags musl --ldflags "-s -w" -o http-echo ./cmd/http-echo/
 
 
 # final image
 FROM scratch
 
+ENV LOG_JSON=$LOG_JSON
+ENV LISTEN_HOST=$LISTEN_HOST
 ENV LISTEN_PORT=$LISTEN_PORT
+ENV JWT_ENABLED=$JWT_ENABLED
 ENV JWT_HEADER=$JWT_HEADER
 
-COPY --from=builder /src/http-echo /http-echo
+COPY --from=builder /src/app/http-echo /http-echo
 
 EXPOSE $PORT
 

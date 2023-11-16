@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -18,34 +17,58 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	envLogJson    = "LOG_JSON"
+	envListenHost = "LISTEN_HOST"
+	envListenPort = "LISTEN_PORT"
+	envJwtEnabled = "JWT_ENABLED"
+	envJwtHeader  = "JWT_HEADER"
+)
+
 var (
+	logJson    = false
 	listenHost = "0.0.0.0"
 	listenPort = 8080
-	jwtHeader  = ""
+	jwtEnabled = false
+	jwtHeader  = "Authorization"
 )
 
 func main() {
-	log.Logger = log.Output(zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
-		w.TimeFormat = "2006-01-02 15:04:05"
-	}))
 
-	defer log.Info().Msg("stopped.")
-
+	flag.BoolVar(&logJson, "log-json", logJson, "Set log format to JSON")
 	flag.StringVar(&listenHost, "host", listenHost, "Host to listen on")
 	flag.IntVar(&listenPort, "port", listenPort, "Port to listen on")
+	flag.BoolVar(&jwtEnabled, "jwt", jwtEnabled, "Enable parsing of JWT")
 	flag.StringVar(&jwtHeader, "jwt-header", jwtHeader, "JWT header name")
 	flag.Parse()
 
-	if envPort := os.Getenv("LISTEN_PORT"); envPort != "" {
-		p, err := strconv.Atoi(envPort)
-		if err != nil {
-			log.Logger.Fatal().Err(err).Msg("failed to parse port")
-		}
-		listenPort = p
+	if httpecho.GetEnvBool(envLogJson) {
+		logJson = true
 	}
 
-	if jwtHeaderEnv := os.Getenv("JWT_HEADER"); jwtHeaderEnv != "" {
+	if !logJson {
+		log.Logger = log.Output(zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
+			w.TimeFormat = "2006-01-02 15:04:05"
+		}))
+	}
+
+	if envHost := os.Getenv(envListenHost); envHost != "" {
+		listenHost = envHost
+	}
+
+	listenPort = httpecho.GetEnvInt(envListenPort, listenPort)
+
+	if httpecho.GetEnvBool(envJwtEnabled) {
+		jwtEnabled = true
+	}
+
+	if jwtHeaderEnv := os.Getenv(envJwtHeader); jwtHeaderEnv != "" {
 		jwtHeader = jwtHeaderEnv
+	}
+
+	jwtFinalHeader := ""
+	if jwtEnabled {
+		jwtFinalHeader = jwtHeader
 	}
 
 	shutdown := make(chan os.Signal, 1)
@@ -53,7 +76,9 @@ func main() {
 
 	listenAddr := fmt.Sprintf("%s:%d", listenHost, listenPort)
 
-	handler := httpecho.NewHttpEchoHandler(log.Logger, jwtHeader)
+	handler := httpecho.NewHttpEchoHandler(log.Logger, jwtFinalHeader)
+
+	serverErr := make(chan error, 1)
 
 	server := &http.Server{
 		Addr:    listenAddr,
@@ -66,22 +91,34 @@ func main() {
 	go func() {
 		defer wg.Done()
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error().Err(err).Msg("server listen error")
+			serverErr <- err
 		} else {
 			log.Info().Msg("server closed")
 		}
 	}()
 
 	log.Info().Msgf("server listening on %s", listenAddr)
+	defer log.Info().Msg("server stopped")
 
-	<-shutdown
+loop:
+	for {
+		select {
+		case <-shutdown:
+			break loop
+		case err := <-serverErr:
+			log.Error().Err(err).Msg("server error")
+			defer os.Exit(1)
+			break loop
+		}
+	}
 
-	log.Info().Msg("graceful stop...")
+	log.Info().Msg("server graceful shutdown")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Msg("error while server shutdown")
+		log.Error().Err(err).Msg("server graceful shutdown error")
+		defer os.Exit(1)
 	}
 
 	wg.Wait()
