@@ -61,13 +61,21 @@ JWT_HEADER="Authorization"
 
 ```bash
 JWT_TOKEN="..."
-curl -s -X POST -H "Content-Type: application/json" -H "${JWT_HEADER}: Bearer ${JWT_TOKEN}" http://localhost:${LISTEN_PORT}/foo?baz=bax -d '{"foo":"bar"}'
+curl -s \
+-X POST \
+-H "X-Set-Response-Status-Code: 401" \
+-H "X-Set-Response-Delay-Ms: 1000" \
+-H "Content-Type: application/json" \
+-H "${JWT_HEADER}: Bearer ${JWT_TOKEN}" \
+-d '{"foo":"bar"}' \
+http://localhost:${LISTEN_PORT}/foo?baz=bax
 ```
 
 ### Response
 
 ```json
 {
+  "status_code": 401,
   "hostname": "localhost:8080",
   "path": "/foo",
   "method": "POST",

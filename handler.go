@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -44,14 +46,15 @@ func (h *HttpEchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info().Uint64("counter", counter).Msgf("serving %s %s to %s", r.Method, r.RequestURI, r.RemoteAddr)
 
 	response := HttpEchoResponse{
-		Hostname: r.Host,
-		Headers:  r.Header,
-		Path:     r.URL.Path,
-		Method:   r.Method,
-		Query:    r.URL.Query(),
-		Body:     nil,
-		Json:     nil,
-		Jwt:      nil,
+		StatusCode: http.StatusOK,
+		Hostname:   r.Host,
+		Headers:    r.Header,
+		Path:       r.URL.Path,
+		Method:     r.Method,
+		Query:      r.URL.Query(),
+		Body:       nil,
+		Json:       nil,
+		Jwt:        nil,
 	}
 
 	if r.ContentLength > 0 {
@@ -86,6 +89,27 @@ func (h *HttpEchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if v := r.Header.Get("X-Set-Response-Status-Code"); v != "" {
+		if c, err := strconv.Atoi(v); err != nil || c < 1 {
+			h.logger.Warn().Err(err).Msg("invalid status code requested")
+		} else {
+			h.logger.Info().Uint64("counter", counter).Msgf("status code forced to %d", c)
+			response.StatusCode = c
+		}
+	}
+
+	if v := r.Header.Get("X-Set-Response-Delay-Ms"); v != "" {
+		if c, err := strconv.Atoi(v); err != nil || c < 1 {
+			h.logger.Warn().Err(err).Msg("invalid delay ms requested")
+		} else {
+			d := time.Millisecond * time.Duration(c)
+			h.logger.Info().Uint64("counter", counter).Msgf("sleeping for to %v", d)
+			time.Sleep(d)
+		}
+	}
+
+	w.WriteHeader(response.StatusCode)
+
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(&response); err != nil {
@@ -93,7 +117,7 @@ func (h *HttpEchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info().Int64("counter", int64(counter)).Any("response", response).Msgf("served %s %s to %s", r.Method, r.RequestURI, r.RemoteAddr)
+	h.logger.Info().Uint64("counter", counter).Any("response", response).Msgf("served %s %s to %s", r.Method, r.RequestURI, r.RemoteAddr)
 }
 
 func NewHttpEchoHandler(logger zerolog.Logger, jwtHeader string) *HttpEchoHandler {
