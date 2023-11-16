@@ -36,12 +36,12 @@ func (m *mockResponseWriter) WriteHeader(statusCode int) {
 func TestHandler(t *testing.T) {
 	method := http.MethodPost
 	uri := "/test"
-	req, err := http.NewRequest(method, uri, bytes.NewBufferString("{\"foo\":\"bar\"}"))
+	query := "foo=bar"
+	req, err := http.NewRequest(method, uri+"?"+query, bytes.NewBufferString("{\"foo\":\"bar\"}"))
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
-	req.RequestURI = uri
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
 
@@ -68,6 +68,10 @@ func TestHandler(t *testing.T) {
 
 	if response.Uri != uri {
 		t.Error("uri")
+	}
+
+	if response.Query == nil || len(response.Query["foo"]) != 1 || response.Query["foo"][0] != "bar" {
+		t.Error("query")
 	}
 
 	if response.Json == nil {
