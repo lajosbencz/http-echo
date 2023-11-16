@@ -14,24 +14,27 @@ import (
 	"time"
 
 	httpecho "github.com/lajosbencz/http-echo"
+	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	envLogJson    = "LOG_JSON"
-	envListenHost = "LISTEN_HOST"
-	envListenPort = "LISTEN_PORT"
-	envJwtEnabled = "JWT_ENABLED"
-	envJwtHeader  = "JWT_HEADER"
+	envLogJson     = "LOG_JSON"
+	envListenHost  = "LISTEN_HOST"
+	envListenPort  = "LISTEN_PORT"
+	envCorsEnabled = "CORS_ENABLED"
+	envJwtEnabled  = "JWT_ENABLED"
+	envJwtHeader   = "JWT_HEADER"
 )
 
 var (
-	logJson    = false
-	listenHost = "0.0.0.0"
-	listenPort = 8080
-	jwtEnabled = false
-	jwtHeader  = "Authorization"
+	logJson     = false
+	listenHost  = "0.0.0.0"
+	listenPort  = 8080
+	corsEnabled = false
+	jwtEnabled  = false
+	jwtHeader   = "Authorization"
 )
 
 //go:embed favicon.ico
@@ -52,6 +55,7 @@ func main() {
 	flag.BoolVar(&logJson, "log-json", logJson, "Set log format to JSON")
 	flag.StringVar(&listenHost, "host", listenHost, "Host to listen on")
 	flag.IntVar(&listenPort, "port", listenPort, "Port to listen on")
+	flag.BoolVar(&corsEnabled, "cors", corsEnabled, "Allow CORS")
 	flag.BoolVar(&jwtEnabled, "jwt", jwtEnabled, "Enable parsing of JWT")
 	flag.StringVar(&jwtHeader, "jwt-header", jwtHeader, "JWT header name")
 	flag.Parse()
@@ -72,6 +76,10 @@ func main() {
 
 	listenPort = httpecho.GetEnvInt(envListenPort, listenPort)
 
+	if httpecho.GetEnvBool(envCorsEnabled) {
+		corsEnabled = true
+	}
+
 	if httpecho.GetEnvBool(envJwtEnabled) {
 		jwtEnabled = true
 	}
@@ -90,17 +98,24 @@ func main() {
 
 	listenAddr := fmt.Sprintf("%s:%d", listenHost, listenPort)
 
-	handler := httpecho.NewHttpEchoHandler(log.Logger, jwtFinalHeader)
+	echoHandler := httpecho.NewHttpEchoHandler(log.Logger, jwtFinalHeader)
 
-	mux := http.NewServeMux()
-	mux.Handle("/", handler)
-	mux.HandleFunc("/favicon.ico", handleFavicon)
+	muxHandler := http.NewServeMux()
+	muxHandler.Handle("/", echoHandler)
+	muxHandler.HandleFunc("/favicon.ico", handleFavicon)
 
 	serverErr := make(chan error, 1)
 
+	var finalHandler http.Handler
+	if corsEnabled {
+		finalHandler = cors.AllowAll().Handler(muxHandler)
+	} else {
+		finalHandler = muxHandler
+	}
+
 	server := &http.Server{
 		Addr:    listenAddr,
-		Handler: mux,
+		Handler: finalHandler,
 	}
 
 	wg := sync.WaitGroup{}

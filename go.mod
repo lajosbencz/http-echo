@@ -2,7 +2,10 @@ module github.com/lajosbencz/http-echo
 
 go 1.21.3
 
-require github.com/rs/zerolog v1.31.0
+require (
+	github.com/rs/cors v1.10.1
+	github.com/rs/zerolog v1.31.0
+)
 
 require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
