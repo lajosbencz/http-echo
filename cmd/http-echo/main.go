@@ -134,6 +134,10 @@ func main() {
 		}
 	}()
 
+	log.Info().Bool("enabled", envEnabled).Msg("ENV")
+	log.Info().Bool("enabled", corsEnabled).Msg("CORS")
+	log.Info().Bool("enabled", jwtEnabled).Msg("JWT")
+
 	log.Info().Msgf("server listening on %s", listenAddr)
 	defer log.Info().Msg("server stopped")
 

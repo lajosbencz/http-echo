@@ -19,25 +19,32 @@ Yet Another HTTP echo image for dummy payloads
 ### Arguments
 
 ```
+-cors
+      Allow CORS
+-env
+      Overwrite options from ENV
 -host string
-    Host to listen on (default "0.0.0.0")
+      Host to listen on (default "0.0.0.0")
 -jwt
-    Enable parsing of JWT
+      Enable parsing of JWT
 -jwt-header string
-    JWT header name (default "Authorization")
+      JWT header name (default "Authorization")
 -log-json
-    Set log format to JSON
+      Set log format to JSON
 -port int
-    Port to listen on (default 8080)
+      Port to listen on (default 8080)
 ```
 
 
 ### Environment
 
+⚠️ Environment variables will only be used if `-env` argument was enabled _(enabled by default for Docker image)_
+
 ```bash 
 LOG_JSON="0"
 LISTEN_HOST="0.0.0.0"
 LISTEN_PORT="8080"
+CORS_ENABLED="0"
 JWT_ENABLED="0"
 JWT_HEADER="Authorization"
 ```
