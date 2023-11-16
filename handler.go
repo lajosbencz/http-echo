@@ -46,7 +46,7 @@ func (h *HttpEchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response := HttpEchoResponse{
 		Hostname: r.Host,
 		Headers:  r.Header,
-		Uri:      r.URL.Path,
+		Path:     r.URL.Path,
 		Method:   r.Method,
 		Query:    r.URL.Query(),
 		Body:     nil,

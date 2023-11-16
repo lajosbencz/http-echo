@@ -66,7 +66,7 @@ curl -s -X POST -H "Content-Type: application/json" -H "${JWT_HEADER}: Bearer ${
 ```json
 {
   "hostname": "localhost:8080",
-  "uri": "/foo",
+  "path": "/foo",
   "method": "POST",
   "query": {
     "baz": [

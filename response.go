@@ -2,7 +2,7 @@ package httpecho
 
 type HttpEchoResponse struct {
 	Hostname string                `json:"hostname"`
-	Uri      string                `json:"uri"`
+	Path     string                `json:"path"`
 	Method   string                `json:"method"`
 	Query    map[string][]string   `json:"query"`
 	Headers  map[string][]string   `json:"headers"`

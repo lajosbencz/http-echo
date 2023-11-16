@@ -66,7 +66,7 @@ func TestHandler(t *testing.T) {
 		t.Error("method")
 	}
 
-	if response.Uri != uri {
+	if response.Path != uri {
 		t.Error("uri")
 	}
 
