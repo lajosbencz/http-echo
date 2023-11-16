@@ -1,5 +1,3 @@
-name: Publish Go executables
-
 on:
   release:
     types: [created]

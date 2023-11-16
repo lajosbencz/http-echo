@@ -31,14 +31,18 @@ docker pull ghcr.io/lajosbencz/http-echo
       Overwrite options from ENV
 -host string
       Host to listen on (default "0.0.0.0")
+-http int
+      HTTP port to listen on (default 8080)
+-https int
+      HTTPS port to listen on, 0 turns it off (default 8443)
 -jwt
       Enable parsing of JWT
 -jwt-header string
       JWT header name (default "Authorization")
 -log-json
       Set log format to JSON
--port int
-      Port to listen on (default 8080)
+-log-level int
+      Logging level of Zerolog (default 1)
 ```
 
 ### Environment
@@ -47,6 +51,7 @@ docker pull ghcr.io/lajosbencz/http-echo
 
 ```bash 
 LOG_JSON="0"
+LOG_LEVEL="1"
 LISTEN_HOST="0.0.0.0"
 LISTEN_PORT="8080"
 CORS_ENABLED="0"

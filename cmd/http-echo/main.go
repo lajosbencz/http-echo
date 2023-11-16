@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"embed"
 	"errors"
 	"flag"
@@ -13,7 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	log0 "log"
+
 	httpecho "github.com/lajosbencz/http-echo"
+	selfsignedtlsgo "github.com/lajosbencz/selfsigned-tls-go"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -22,20 +26,24 @@ import (
 const (
 	envLogJson     = "LOG_JSON"
 	envListenHost  = "LISTEN_HOST"
-	envListenPort  = "LISTEN_PORT"
+	envListenHttp  = "LISTEN_HTTP"
+	envListenHttps = "LISTEN_HTTPS"
 	envCorsEnabled = "CORS_ENABLED"
 	envJwtEnabled  = "JWT_ENABLED"
 	envJwtHeader   = "JWT_HEADER"
+	envLogLevel    = "LOG_LEVEL"
 )
 
 var (
 	envEnabled  = false
 	logJson     = false
 	listenHost  = "0.0.0.0"
-	listenPort  = 8080
+	listenHttp  = 8080
+	listenHttps = 8443
 	corsEnabled = false
 	jwtEnabled  = false
 	jwtHeader   = "Authorization"
+	logLevel    = int(zerolog.InfoLevel)
 )
 
 //go:embed favicon.ico
@@ -51,19 +59,23 @@ func handleFavicon(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(faviconData)
 }
 
-func main() {
-
+func init() {
 	flag.BoolVar(&envEnabled, "env", envEnabled, "Overwrite options from ENV")
 	flag.BoolVar(&logJson, "log-json", logJson, "Set log format to JSON")
 	flag.StringVar(&listenHost, "host", listenHost, "Host to listen on")
-	flag.IntVar(&listenPort, "port", listenPort, "Port to listen on")
+	flag.IntVar(&listenHttp, "http", listenHttp, "HTTP port to listen on")
+	flag.IntVar(&listenHttps, "https", listenHttps, "HTTPS port to listen on, 0 turns it off")
 	flag.BoolVar(&corsEnabled, "cors", corsEnabled, "Allow CORS")
 	flag.BoolVar(&jwtEnabled, "jwt", jwtEnabled, "Enable parsing of JWT")
 	flag.StringVar(&jwtHeader, "jwt-header", jwtHeader, "JWT header name")
+	flag.IntVar(&logLevel, "log-level", logLevel, "Logging level of Zerolog")
 	flag.Parse()
 
-	if envEnabled && httpecho.GetEnvBool(envLogJson) {
-		logJson = true
+	if envEnabled {
+		if httpecho.GetEnvBool(envLogJson) {
+			logJson = true
+		}
+		logLevel = httpecho.GetEnvInt(envLogLevel, logLevel)
 	}
 
 	if !logJson {
@@ -71,13 +83,16 @@ func main() {
 			w.TimeFormat = "2006-01-02 15:04:05"
 		}))
 	}
+	zerolog.SetGlobalLevel(zerolog.Level(logLevel))
 
 	if envEnabled {
 		if envHost := os.Getenv(envListenHost); envHost != "" {
 			listenHost = envHost
 		}
 
-		listenPort = httpecho.GetEnvInt(envListenPort, listenPort)
+		listenHttp = httpecho.GetEnvInt(envListenHttp, listenHttp)
+
+		listenHttps = httpecho.GetEnvInt(envListenHttps, listenHttps)
 
 		if httpecho.GetEnvBool(envCorsEnabled) {
 			corsEnabled = true
@@ -91,16 +106,24 @@ func main() {
 			jwtHeader = jwtHeaderEnv
 		}
 	}
+}
+
+func main() {
+
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGHUP)
+	defer close(shutdown)
+
+	defer log.Debug().Msg("shut down gracefully")
+
+	log.Info().Bool("enabled", envEnabled).Msg("ENV")
+	log.Info().Bool("enabled", corsEnabled).Msg("CORS")
+	log.Info().Bool("enabled", jwtEnabled).Msg("JWT")
 
 	jwtFinalHeader := ""
 	if jwtEnabled {
 		jwtFinalHeader = jwtHeader
 	}
-
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGHUP)
-
-	listenAddr := fmt.Sprintf("%s:%d", listenHost, listenPort)
 
 	echoHandler := httpecho.NewHttpEchoHandler(log.Logger, jwtFinalHeader)
 
@@ -117,9 +140,18 @@ func main() {
 		finalHandler = muxHandler
 	}
 
-	server := &http.Server{
-		Addr:    listenAddr,
-		Handler: finalHandler,
+	listenAddr := fmt.Sprintf("%s:%d", listenHost, listenHttp)
+
+	log0.Default().SetFlags(log0.Lshortfile)
+	httpLogWriter := &zerologWriter{
+		logger: log.Logger,
+	}
+	httpLogger := log0.New(httpLogWriter, "", 0)
+
+	serverHttp := &http.Server{
+		Addr:     listenAddr,
+		Handler:  finalHandler,
+		ErrorLog: httpLogger,
 	}
 
 	wg := sync.WaitGroup{}
@@ -127,19 +159,46 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErr <- err
+		if err := serverHttp.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- fmt.Errorf("http: %s", err)
 		} else {
-			log.Info().Msg("server closed")
+			log.Debug().Msg("server (http) closed")
 		}
 	}()
 
-	log.Info().Bool("enabled", envEnabled).Msg("ENV")
-	log.Info().Bool("enabled", corsEnabled).Msg("CORS")
-	log.Info().Bool("enabled", jwtEnabled).Msg("JWT")
+	var serverHttps *http.Server
+	if listenHttps > 0 {
+		// @todo: check if crt files were provided
+		listenAddrHttps := fmt.Sprintf("%s:%d", listenHost, listenHttps)
+		if crt, err := selfsignedtlsgo.DefaultSelfsignedTls(); err != nil {
+			log.Fatal().Err(err).Msg("failed to generate self-signed TLS")
+		} else {
+			serverHttps = &http.Server{
+				Addr:    listenAddrHttps,
+				Handler: finalHandler,
+				TLSConfig: &tls.Config{
+					NextProtos:         []string{"http/1.1"},
+					Certificates:       []tls.Certificate{crt},
+					InsecureSkipVerify: true,
+				},
+				ErrorLog: httpLogger,
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := serverHttps.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					serverErr <- fmt.Errorf("https: %s", err)
+				} else {
+					log.Debug().Msg("server (https) closed")
+				}
+			}()
+		}
+		log.Info().Str("address", listenAddrHttps).Msgf("server (https) listening")
+		defer log.Debug().Msg("server (https) stopped")
+	}
 
-	log.Info().Msgf("server listening on %s", listenAddr)
-	defer log.Info().Msg("server stopped")
+	log.Info().Str("address", listenAddr).Msgf("server (http) listening")
+	defer log.Debug().Msg("server (http) stopped")
 
 loop:
 	for {
@@ -153,13 +212,27 @@ loop:
 		}
 	}
 
-	log.Info().Msg("server graceful shutdown")
+	log.Debug().Msg("shutting down gracefully...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Msg("server graceful shutdown error")
-		defer os.Exit(1)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := serverHttp.Shutdown(ctx); err != nil {
+			log.Error().Err(err).Msg("server (http) graceful shutdown error")
+		}
+	}()
+
+	if serverHttps != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := serverHttps.Shutdown(ctx); err != nil {
+				log.Error().Err(err).Msg("server (https) graceful shutdown error")
+			}
+		}()
 	}
 
 	wg.Wait()

@@ -1,5 +1,3 @@
-name: Publish Docker image to ghcr.io and docker.io
-
 on:
   release:
     types: [created]

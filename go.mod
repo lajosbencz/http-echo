@@ -3,6 +3,7 @@ module github.com/lajosbencz/http-echo
 go 1.21.3
 
 require (
+	github.com/lajosbencz/selfsigned-tls-go v0.1.0
 	github.com/rs/cors v1.10.1
 	github.com/rs/zerolog v1.31.0
 )
