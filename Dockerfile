@@ -43,3 +43,4 @@ EXPOSE $PORT
 USER $USER
 
 ENTRYPOINT [ "/http-echo" ]
+CMD [ "-env" ]

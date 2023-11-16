@@ -29,6 +29,7 @@ const (
 )
 
 var (
+	envEnabled  = false
 	logJson     = false
 	listenHost  = "0.0.0.0"
 	listenPort  = 8080
@@ -52,6 +53,7 @@ func handleFavicon(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
+	flag.BoolVar(&envEnabled, "env", envEnabled, "Overwrite options from ENV")
 	flag.BoolVar(&logJson, "log-json", logJson, "Set log format to JSON")
 	flag.StringVar(&listenHost, "host", listenHost, "Host to listen on")
 	flag.IntVar(&listenPort, "port", listenPort, "Port to listen on")
@@ -60,7 +62,7 @@ func main() {
 	flag.StringVar(&jwtHeader, "jwt-header", jwtHeader, "JWT header name")
 	flag.Parse()
 
-	if httpecho.GetEnvBool(envLogJson) {
+	if envEnabled && httpecho.GetEnvBool(envLogJson) {
 		logJson = true
 	}
 
@@ -70,22 +72,24 @@ func main() {
 		}))
 	}
 
-	if envHost := os.Getenv(envListenHost); envHost != "" {
-		listenHost = envHost
-	}
+	if envEnabled {
+		if envHost := os.Getenv(envListenHost); envHost != "" {
+			listenHost = envHost
+		}
 
-	listenPort = httpecho.GetEnvInt(envListenPort, listenPort)
+		listenPort = httpecho.GetEnvInt(envListenPort, listenPort)
 
-	if httpecho.GetEnvBool(envCorsEnabled) {
-		corsEnabled = true
-	}
+		if httpecho.GetEnvBool(envCorsEnabled) {
+			corsEnabled = true
+		}
 
-	if httpecho.GetEnvBool(envJwtEnabled) {
-		jwtEnabled = true
-	}
+		if httpecho.GetEnvBool(envJwtEnabled) {
+			jwtEnabled = true
+		}
 
-	if jwtHeaderEnv := os.Getenv(envJwtHeader); jwtHeaderEnv != "" {
-		jwtHeader = jwtHeaderEnv
+		if jwtHeaderEnv := os.Getenv(envJwtHeader); jwtHeaderEnv != "" {
+			jwtHeader = jwtHeaderEnv
+		}
 	}
 
 	jwtFinalHeader := ""
