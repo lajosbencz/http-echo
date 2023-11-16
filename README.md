@@ -1,6 +1,6 @@
 # http-echo
 
-Yet Another HTTP echo server for dummy payloads, focusing on small image size (`<5MB`)
+Yet Another HTTP echo server for dummy payloads, focusing on small image size (`~5MB`)
 
 
 ## Download
