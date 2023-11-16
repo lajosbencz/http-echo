@@ -47,7 +47,7 @@ docker pull ghcr.io/lajosbencz/http-echo
 
 ### Environment
 
-⚠️ Environment variables will only be used if `-env` argument was enabled _(enabled by default for Docker image)_
+⚠️ Environment variables will only be used if `-env` flag was enabled _(enabled by default for Docker image)_
 
 ```bash 
 LOG_JSON="0"
@@ -74,7 +74,7 @@ curl -s \
 -H "Content-Type: application/json" \
 -H "${JWT_HEADER}: Bearer ${JWT_TOKEN}" \
 -d '{"foo":"bar"}' \
-http://localhost:${LISTEN_PORT}/foo?baz=bax
+"http://localhost:${LISTEN_HTTP}/foo?baz=bax"
 ```
 
 ### Response
