@@ -1,20 +1,26 @@
 # http-echo
-Yet Another HTTP echo image for dummy payloads
+
+Yet Another HTTP echo server for dummy payloads, focusing on small image size (`<5MB`)
 
 
 ## Download
 
-- Docker Hub
-    - https://hub.docker.com/r/lajosbencz/http-echo
-    - `docker pull lajosbencz/http-echo`
-- GitHub Registry
-    - https://github.com/lajosbencz/http-echo/pkgs/container/http-echo
-    - `docker pull ghcr.io/lajosbencz/http-echo`
-- GitHub Release
-    - https://github.com/lajosbencz/http-echo/releases
+#### [Docker Hub](https://hub.docker.com/r/lajosbencz/http-echo)
+
+```bash
+docker pull lajosbencz/http-echo
+```
+
+#### [GitHub Registry](https://github.com/lajosbencz/http-echo/pkgs/container/http-echo)
+
+```bash
+docker pull ghcr.io/lajosbencz/http-echo
+```
+
+#### [GitHub Release Binaries](https://github.com/lajosbencz/http-echo/releases)
+
 
 ## Config
-
 
 ### Arguments
 
@@ -35,7 +41,6 @@ Yet Another HTTP echo image for dummy payloads
       Port to listen on (default 8080)
 ```
 
-
 ### Environment
 
 ⚠️ Environment variables will only be used if `-env` argument was enabled _(enabled by default for Docker image)_
@@ -52,14 +57,12 @@ JWT_HEADER="Authorization"
 
 ## Example
 
-
 ### Request
 
 ```bash
 JWT_TOKEN="..."
 curl -s -X POST -H "Content-Type: application/json" -H "${JWT_HEADER}: Bearer ${JWT_TOKEN}" http://localhost:${LISTEN_PORT}/foo?baz=bax -d '{"foo":"bar"}'
 ```
-
 
 ### Response
 
