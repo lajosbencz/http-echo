@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,6 +33,19 @@ var (
 	jwtEnabled = false
 	jwtHeader  = "Authorization"
 )
+
+//go:embed favicon.ico
+var faviconFile embed.FS
+
+func handleFavicon(w http.ResponseWriter, r *http.Request) {
+	faviconData, err := faviconFile.ReadFile("favicon.ico")
+	if err != nil {
+		http.Error(w, "Favicon not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "image/x-icon")
+	_, _ = w.Write(faviconData)
+}
 
 func main() {
 
@@ -78,11 +92,15 @@ func main() {
 
 	handler := httpecho.NewHttpEchoHandler(log.Logger, jwtFinalHeader)
 
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.HandleFunc("/favicon.ico", handleFavicon)
+
 	serverErr := make(chan error, 1)
 
 	server := &http.Server{
 		Addr:    listenAddr,
-		Handler: handler,
+		Handler: mux,
 	}
 
 	wg := sync.WaitGroup{}
